@@ -114,3 +114,4 @@ SIMPLE_JWT = {
 
 # CORS — kotiverkossa sallitaan kaikki originit
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_EXPOSE_HEADERS = ["X-Total-Count", "ETag"]

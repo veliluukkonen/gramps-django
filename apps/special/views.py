@@ -31,7 +31,7 @@ from apps.core.profile import (
     get_source_profile,
 )
 
-GRAMPS_DJANGO_VERSION = "0.1.0"
+GRAMPS_DJANGO_VERSION = "3.3.0"
 
 
 class MetadataView(APIView):
