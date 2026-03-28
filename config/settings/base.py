@@ -3,6 +3,7 @@ Base Django settings for Gramps Django project.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -24,7 +25,10 @@ INSTALLED_APPS = [
     "django_filters",
     # Local apps
     "apps.core",
+    "apps.auth",
 ]
+
+AUTH_USER_MODEL = "gramps_auth.GrampsUser"
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -85,11 +89,24 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "apps.core.renderers.GrampsJSONRenderer",
     ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.GrampsPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
+}
+
+# JWT — compatible with gramps-web frontend
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "sub",
+    "TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainPairSerializer",
 }
 
 # CORS — kotiverkossa sallitaan kaikki originit
