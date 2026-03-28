@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.auth",
     "apps.media",
     "apps.special",
+    "apps.migration",
 ]
 
 AUTH_USER_MODEL = "gramps_auth.GrampsUser"
