@@ -136,9 +136,14 @@ class SearchView(APIView):
         type_filter = request.query_params.get("type", "")
         allowed_types = set(type_filter.split(",")) if type_filter else None
 
+        # Wildcard query returns all (sorted by change)
+        is_wildcard = query.strip("*") == ""
+
+        # Sort parameter
+        sort_param = request.query_params.get("sort", "")
+
         results = []
 
-        # Search across all object types
         search_configs = [
             ("person", Person, _search_people, get_person_profile),
             ("family", Family, _search_families, get_family_profile),
@@ -155,21 +160,35 @@ class SearchView(APIView):
             if allowed_types and type_name not in allowed_types:
                 continue
 
-            matches = search_func(query)
+            if is_wildcard:
+                matches = model.objects.all().order_by("-change")[:100]
+            else:
+                # Strip trailing wildcard for icontains search
+                clean_query = query.rstrip("*")
+                matches = search_func(clean_query)
+
             for obj in matches:
                 result = {
                     "handle": obj.handle,
                     "object_type": type_name,
                     "score": 1.0,
                     "change": obj.change,
+                    "object": {
+                        "handle": obj.handle,
+                        "gramps_id": obj.gramps_id or "",
+                    },
                 }
                 if profile_args:
-                    result["object"] = {"handle": obj.handle}
                     result["object"]["profile"] = profile_func(obj, profile_args)
                 results.append(result)
 
-        # Sort by change (most recent first)
-        results.sort(key=lambda r: r["change"], reverse=True)
+        # Sort
+        if "-change" in sort_param:
+            results.sort(key=lambda r: r["change"], reverse=True)
+        elif "change" in sort_param:
+            results.sort(key=lambda r: r["change"])
+        else:
+            results.sort(key=lambda r: r["change"], reverse=True)
 
         # Paginate
         total = len(results)
@@ -183,11 +202,11 @@ class SearchView(APIView):
 
 
 def _search_people(query):
-    """Search people by name fields."""
+    """Search people by name fields using JSON text search."""
     return Person.objects.filter(
         Q(gramps_id__icontains=query)
         | Q(primary_name__first_name__icontains=query)
-        | Q(primary_name__surname_list__contains=[{"surname": query}])
+        | Q(primary_name__icontains=query)
     )[:100]
 
 
