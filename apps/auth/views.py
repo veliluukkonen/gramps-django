@@ -166,6 +166,8 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     GET    /api/users/<username>/ — Get user details
     PUT    /api/users/<username>/ — Update user
     DELETE /api/users/<username>/ — Delete user
+
+    Special: username "-" means current authenticated user.
     """
 
     queryset = GrampsUser.objects.all()
@@ -173,17 +175,25 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "username"
     permission_classes = [IsAuthenticated, HasGrampsPermission]
 
+    def get_object(self):
+        username = self.kwargs.get("username")
+        if username == "-":
+            return self.request.user
+        return super().get_object()
+
     @property
     def required_permissions(self):
+        username = self.kwargs.get("username")
+        if username == "-":
+            return []
         if self.request.method == "GET":
-            # Users can always view their own profile
-            if self.kwargs.get("username") == self.request.user.username:
+            if username == self.request.user.username:
                 return []
             return [PERM_VIEW_OTHER_USER]
         elif self.request.method == "DELETE":
             return [PERM_DEL_USER]
         else:
-            if self.kwargs.get("username") == self.request.user.username:
+            if username == self.request.user.username:
                 return []
             return [PERM_EDIT_OTHER_USER]
 
