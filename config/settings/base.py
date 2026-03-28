@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     # Local apps
     "apps.core",
     "apps.auth",
+    "apps.media",
+    "apps.special",
 ]
 
 AUTH_USER_MODEL = "gramps_auth.GrampsUser"
