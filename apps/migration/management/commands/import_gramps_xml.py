@@ -135,7 +135,7 @@ class Command(BaseCommand):
             Event.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "type": event_type,
@@ -208,7 +208,7 @@ class Command(BaseCommand):
             Place.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "title": self._text(el, "ptitle"),
@@ -251,7 +251,7 @@ class Command(BaseCommand):
             Source.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "title": self._text(el, "stitle"),
@@ -278,7 +278,7 @@ class Command(BaseCommand):
             Repository.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "name": self._text(el, "rname"),
@@ -308,7 +308,7 @@ class Command(BaseCommand):
             Citation.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "source_handle_id": source_handle,
@@ -335,7 +335,7 @@ class Command(BaseCommand):
             MediaObject.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "path": file_el.get("src", "") if file_el is not None else "",
@@ -382,7 +382,7 @@ class Command(BaseCommand):
             Note.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "type": el.get("type", "General"),
@@ -457,7 +457,7 @@ class Command(BaseCommand):
             Person.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "gender": gender,
@@ -519,7 +519,7 @@ class Command(BaseCommand):
             Family.objects.update_or_create(
                 handle=el.get("handle"),
                 defaults={
-                    "gramps_id": el.get("id", ""),
+                    "gramps_id": el.get("id") or None,
                     "change": float(el.get("change", 0)),
                     "private": el.get("priv") == "1",
                     "type": rel.get("type", "") if rel is not None else "",

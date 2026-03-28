@@ -13,7 +13,7 @@ class GrampsBaseModel(models.Model):
     """Abstract base for all Gramps primary objects."""
 
     handle = models.CharField(max_length=50, primary_key=True)
-    gramps_id = models.CharField(max_length=50, unique=True, blank=True, default="")
+    gramps_id = models.CharField(max_length=50, unique=True, blank=True, null=True, default=None)
     change = models.FloatField(default=0, help_text="Unix timestamp of last modification")
     private = models.BooleanField(default=False)
     tag_list = models.JSONField(default=list, blank=True, help_text="List of Tag handles")
