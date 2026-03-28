@@ -95,6 +95,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.GrampsPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": [

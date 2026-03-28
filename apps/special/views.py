@@ -120,7 +120,7 @@ class SearchView(APIView):
     Full-text search across all Gramps objects using PostgreSQL.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         query = request.query_params.get("query", "").strip()
