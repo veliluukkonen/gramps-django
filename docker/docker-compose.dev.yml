@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: gramps
+      POSTGRES_USER: gramps
+      POSTGRES_PASSWORD: gramps_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gramps"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  django:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ..:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: gramps
+      POSTGRES_USER: gramps
+      POSTGRES_PASSWORD: gramps_dev
+      SECRET_KEY: dev-secret-key
+      MEDIA_ROOT: /app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_dev_data:
