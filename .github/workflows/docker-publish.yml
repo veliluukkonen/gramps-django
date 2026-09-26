@@ -3,8 +3,7 @@ name: Build and Publish Docker Image
 on:
   push:
     branches:
-      - main  # Käytetään mainia, koska se on projektin päähaara
-
+      - main
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -44,11 +43,3 @@ jobs:
           push: true
           tags: ${{ id.meta.outputs.tags }}
           labels: ${{ id.meta.outputs.labels }}
-```
-
-Viimeiseksi luen `Dockerfile`-tiedoston varmistaakseni, että se toimii oikein automaatiossa.
-
-```tool
-TOOL_NAME: read_file
-BEGIN_ARG: filepath
-Dockerfile
