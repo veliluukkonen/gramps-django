@@ -3,7 +3,7 @@ dj-database-url>=2.0.0
 Pillow>=10.0
 gunicorn>=22.0
 djangorestframework
-corsheaders
+django-cors-headers
 django-filter
 djangorestframework-simplejwt
 
