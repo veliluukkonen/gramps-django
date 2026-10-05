@@ -9,8 +9,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-change-this-in-production"
+SECRET_KEY = (
+    os.environ.get("DJANGO_SECRET_KEY")
+    or os.environ.get("SECRET_KEY")
+    or "django-insecure-change-this-in-production"
 )
 
 INSTALLED_APPS = [
