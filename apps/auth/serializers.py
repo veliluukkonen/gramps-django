@@ -40,3 +40,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True, min_length=6)
+
+
+class RegisterSerializer(serializers.Serializer):
+    """Payload of POST /api/users/<username>/register/ (unauthenticated)."""
+
+    password = serializers.CharField(write_only=True, min_length=6)
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    tree = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True, min_length=6)

@@ -117,3 +117,34 @@ SIMPLE_JWT = {
 # CORS — kotiverkossa sallitaan kaikki originit
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_EXPOSE_HEADERS = ["X-Total-Count", "ETag"]
+
+
+# --- E-mail (password reset, new-user notifications) ---
+# Set EMAIL_HOST to use SMTP; otherwise mails are printed to the backend log.
+def _env_bool(name, default):
+    return os.environ.get(name, str(default)).lower() in ("1", "true", "yes")
+
+
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", False)
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "gramps@localhost"
+)
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+
+# Public base URL used in e-mail links, e.g. http://suku.net.
+# If empty, the URL is derived from the incoming request.
+BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")
+
+# Set REGISTRATION_DISABLED=true to turn off self-registration.
+REGISTRATION_DISABLED = _env_bool("REGISTRATION_DISABLED", False)
+PASSWORD_RESET_TOKEN_LIFETIME = timedelta(hours=1)
