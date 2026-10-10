@@ -19,3 +19,6 @@ DATABASES = {
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
+
+# E-mailin lähettämisen määrittely konsoliin developmentissa
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
