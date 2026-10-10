@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "apps.media",
     "apps.special",
     "apps.migration",
+    "apps.tree",
+    "apps.analysis",
 ]
 
 AUTH_USER_MODEL = "gramps_auth.GrampsUser"
@@ -66,12 +68,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600
-    )
-}
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {"default": dj_database_url.config(conn_max_age=600)}
+else:
+    # Fall back to the individual POSTGRES_* variables (used by the dev compose).
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", "gramps"),
+            "USER": os.environ.get("POSTGRES_USER", "gramps"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": 600,
+        }
+    }
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -148,3 +159,8 @@ BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")
 # Set REGISTRATION_DISABLED=true to turn off self-registration.
 REGISTRATION_DISABLED = _env_bool("REGISTRATION_DISABLED", False)
 PASSWORD_RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
+# Default language of the tree (type names, translations, profile strings).
+GRAMPS_LANGUAGE = os.environ.get("GRAMPS_LANGUAGE", "fi")
+# Name shown for the tree in the frontend (overridable via /api/trees/-).
+TREE_NAME = os.environ.get("TREE_NAME", "Sukupuu")

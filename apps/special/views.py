@@ -7,6 +7,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+# Translation views live in apps.special.translations; re-exported here so
+# existing imports (``views.TranslationsListView``) keep working.
+from .translations import TranslationsDetailView, TranslationsListView  # noqa: F401
+
 from apps.core.models import (
     Citation,
     Event,
@@ -45,60 +49,62 @@ class MetadataView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        from django.conf import settings
+
+        from apps.tree.models import Config
+
+        language = settings.GRAMPS_LANGUAGE
+        tree_name = Config.get("tree_name", settings.TREE_NAME)
+        researcher = Config.get("researcher") or {}
+        counts = {
+            "people": Person.objects.count(),
+            "families": Family.objects.count(),
+            "sources": Source.objects.count(),
+            "citations": Citation.objects.count(),
+            "events": Event.objects.count(),
+            "media": MediaObject.objects.count(),
+            "places": Place.objects.count(),
+            "repositories": Repository.objects.count(),
+            "notes": Note.objects.count(),
+            "tags": Tag.objects.count(),
+        }
+        total_objects = sum(v for k, v in counts.items() if k != "tags")
         data = {
             "database": {
                 "id": "gramps-django",
-                "name": "Gramps Django",
+                "name": tree_name,
                 "type": "postgresql",
                 "version": "16",
                 "module": "django",
-                "schema": "1",
-                "actual_schema": "1",
+                "schema": "21.0.0",
+                "actual_schema": "21.0.0",
             },
-            "default_person": None,
+            "default_person": Config.get("default_person"),
             "gramps": {
                 "version": "5.2.0",
             },
             "gramps_webapi": {
-                "schema": "1",
+                "schema": "3.3.0",
                 "version": GRAMPS_DJANGO_VERSION,
             },
             "locale": {
-                "lang": "fi_FI",
-                "language": "Finnish",
-                "description": "Finnish",
+                "lang": language,
+                "language": _LANGUAGE_NAMES.get(language, language),
+                "description": _LANGUAGE_NAMES.get(language, language),
                 "incomplete_translation": False,
             },
-            "object_counts": {
-                "people": Person.objects.count(),
-                "families": Family.objects.count(),
-                "sources": Source.objects.count(),
-                "citations": Citation.objects.count(),
-                "events": Event.objects.count(),
-                "media": MediaObject.objects.count(),
-                "places": Place.objects.count(),
-                "repositories": Repository.objects.count(),
-                "notes": Note.objects.count(),
-                "tags": Tag.objects.count(),
-            },
+            "object_counts": counts,
             "researcher": {
-                "name": "",
-                "addr": "",
-                "city": "",
-                "country": "",
-                "county": "",
-                "email": "",
-                "locality": "",
-                "phone": "",
-                "postal": "",
-                "state": "",
-                "street": "",
+                key: researcher.get(key, "")
+                for key in (
+                    "name", "addr", "city", "country", "county", "email",
+                    "locality", "phone", "postal", "state", "street",
+                )
             },
             "search": {
-                "sifts": {
-                    "version": "0.0.0",
-                    "count": 0,
-                },
+                # Search is live SQL; report the full object count so the
+                # frontend does not ask for a reindex.
+                "sifts": {"version": "0.0.0", "count": total_objects},
             },
             "server": {
                 "multi_tree": False,
@@ -111,6 +117,14 @@ class MetadataView(APIView):
         }
 
         return Response(data)
+
+
+_LANGUAGE_NAMES = {
+    "fi": "Finnish",
+    "en": "English",
+    "sv": "Swedish",
+    "de": "German",
+}
 
 
 class SearchView(APIView):
@@ -263,56 +277,3 @@ def _search_notes(query):
         Q(gramps_id__icontains=query) | Q(text__string__icontains=query)
     )[:100]
 
-
-class TranslationsListView(APIView):
-    """
-    GET /api/translations/
-
-    Returns list of available languages.
-    """
-
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        # Basic set of languages — can be expanded later
-        languages = [
-            {"language": "en", "default": "English", "current": "English", "native": "English"},
-            {"language": "fi", "default": "Finnish", "current": "Suomi", "native": "Suomi"},
-            {"language": "sv", "default": "Swedish", "current": "Svenska", "native": "Svenska"},
-            {"language": "de", "default": "German", "current": "Deutsch", "native": "Deutsch"},
-            {"language": "fr", "default": "French", "current": "Français", "native": "Français"},
-        ]
-        return Response(languages)
-
-
-class TranslationsDetailView(APIView):
-    """
-    GET /api/translations/<language>?strings=["str1","str2"]
-    POST /api/translations/<language> body: {"strings": [...]}
-
-    Returns translations for given strings.
-    Currently returns originals as-is (translation engine not yet implemented).
-    """
-
-    permission_classes = [AllowAny]
-
-    def get(self, request, language):
-        import json
-
-        strings_param = request.query_params.get("strings", "[]")
-        try:
-            strings = json.loads(strings_param)
-        except (json.JSONDecodeError, TypeError):
-            strings = []
-        return Response(self._translate(strings, language))
-
-    def post(self, request, language):
-        strings = request.data.get("strings", [])
-        return Response(self._translate(strings, language))
-
-    def _translate(self, strings, language):
-        # Placeholder — returns originals. Replace with real translation later.
-        return [
-            {"original": s, "translation": s}
-            for s in strings
-        ]

@@ -28,6 +28,11 @@ urlpatterns = [
         name="password_reset",
     ),
     path(
+        "users/<str:username>/create_owner/",
+        views.UserCreateOwnerView.as_view(),
+        name="user_create_owner",
+    ),
+    path(
         "users/<str:username>/",
         views.UserDetailView.as_view(),
         name="user_detail",

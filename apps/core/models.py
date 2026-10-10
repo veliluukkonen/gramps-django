@@ -334,3 +334,57 @@ class BacklinkIndex(models.Model):
 
     def __str__(self):
         return f"{self.source_type}:{self.source_handle} -> {self.target_type}:{self.target_handle}"
+
+
+class Transaction(models.Model):
+    """
+    A committed write transaction (add/update/delete of one or more objects).
+
+    Mirrors the transaction history of gramps-web-api so that the
+    frontend revision views and undo work.
+    """
+
+    timestamp = models.FloatField(db_index=True, help_text="Unix timestamp of the commit")
+    description = models.CharField(max_length=500, default="", blank=True)
+    user = models.ForeignKey(
+        "gramps_auth.GrampsUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
+    undone = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "gramps_transaction"
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Transaction {self.id}: {self.description}"
+
+
+class TransactionChange(models.Model):
+    """One object change inside a Transaction."""
+
+    TXN_ADD = 0
+    TXN_UPDATE = 1
+    TXN_DELETE = 2
+    TXN_TYPE_CHOICES = [
+        (TXN_ADD, "add"),
+        (TXN_UPDATE, "update"),
+        (TXN_DELETE, "delete"),
+    ]
+
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="changes"
+    )
+    order = models.IntegerField(default=0)
+    obj_class = models.CharField(max_length=20, help_text="Person, Family, ..., Media, Note, Tag")
+    obj_handle = models.CharField(max_length=50, db_index=True)
+    trans_type = models.IntegerField(choices=TXN_TYPE_CHOICES)
+    old_data = models.JSONField(null=True, blank=True)
+    new_data = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        db_table = "gramps_transaction_change"
+        ordering = ["transaction_id", "order"]

@@ -22,6 +22,25 @@ from .models import (
 )
 
 
+def add_date_years(value):
+    """
+    Add the ``year`` key to every Gramps date dict (recursively).
+
+    gramps-web-api exposes ``Date.get_year()`` as ``year`` and the frontend
+    relies on it (e.g. anniversaries). Dates are stored without it.
+    """
+    if isinstance(value, dict):
+        if "dateval" in value and "year" not in value:
+            dateval = value.get("dateval") or []
+            value["year"] = dateval[2] if len(dateval) >= 3 and isinstance(dateval[2], int) else 0
+        for v in value.values():
+            add_date_years(v)
+    elif isinstance(value, list):
+        for v in value:
+            add_date_years(v)
+    return value
+
+
 class GrampsBaseSerializer(serializers.ModelSerializer):
     """
     Base serializer for Gramps primary objects.
@@ -35,6 +54,7 @@ class GrampsBaseSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["_class"] = self._gramps_class_name()
+        add_date_years(data)
 
         request = self.context.get("request")
         if request:
