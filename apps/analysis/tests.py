@@ -496,3 +496,68 @@ class DnaTests(FixtureMixin, TestCase):
         self.assertIn("tree_version", data)
         self.assertEqual(client.get("/api/people/ville/ydna").json(), {})
         self.assertEqual(client.get("/api/people/nobody/ydna").status_code, 404)
+
+
+class SimilarPeopleTests(TestCase):
+    """GET /api/people/similar/ — duplicate warning for the new-person form."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.core.models import Event, Person
+
+        def person(handle, first, surname, gid, birth=None, alt=None, gender=1):
+            refs = []
+            if birth:
+                Event.objects.create(
+                    handle=f"e-{handle}", gramps_id=f"E-{gid}", type="Birth",
+                    date={"dateval": [0, 0, birth, False], "sortval": birth * 512},
+                )
+                refs = [{"ref": f"e-{handle}", "role": "Primary"}]
+            Person.objects.create(
+                handle=handle, gramps_id=gid, gender=gender,
+                primary_name={
+                    "first_name": first,
+                    "surname_list": [{"surname": surname, "primary": True}],
+                },
+                alternate_names=alt or [],
+                event_ref_list=refs,
+                birth_ref_index=0 if refs else -1,
+            )
+
+        person("s1", "Matti Juhani", "Virtanen", "I1", birth=1900)
+        person("s2", "Maija", "Virtanen", "I2", birth=1950, gender=0)
+        person("s3", "Matti", "Wirtanen", "I3", birth=1902)
+        person("s4", "Anna", "Korhonen", "I4", birth=1920,
+               alt=[{"first_name": "Anna", "surname_list": [{"surname": "Virtanen"}]}])
+        person("s5", "Mätti", "Vírtanen", "I5")
+
+    def test_surname_prefix_and_count(self):
+        resp = self.client.get("/api/people/similar/?surname=virt")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["X-Total-Count"], "4")  # s1, s2, s4 (alt name), s5
+        ids = {r["gramps_id"] for r in resp.json()}
+        self.assertEqual(ids, {"I1", "I2", "I4", "I5"})
+
+    def test_first_name_and_accent_insensitive(self):
+        resp = self.client.get("/api/people/similar/?surname=Virtanen&first_name=mat")
+        ids = {r["gramps_id"] for r in resp.json()}
+        self.assertEqual(ids, {"I1", "I5"})
+        self.assertEqual(resp.json()[0]["profile"]["name_display"], "Matti Juhani Virtanen")
+
+    def test_birth_year_tolerance_keeps_unknown(self):
+        resp = self.client.get("/api/people/similar/?surname=Virtanen&first_name=M&birth_year=1901")
+        ids = {r["gramps_id"] for r in resp.json()}
+        self.assertEqual(ids, {"I1", "I5"})  # I2 born 1950 dropped, I5 unknown kept
+        self.assertEqual([r["birth_year"] for r in resp.json() if r["gramps_id"] == "I1"], [1900])
+
+    def test_limit_returns_count_only(self):
+        resp = self.client.get("/api/people/similar/?surname=v&limit=2")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["X-Total-Count"], "4")
+        self.assertEqual(resp.json(), [])
+
+    def test_gender_flag_and_validation(self):
+        resp = self.client.get("/api/people/similar/?surname=Virtanen&first_name=Maija&gender=1")
+        self.assertFalse(resp.json()[0]["gender_match"])
+        self.assertEqual(self.client.get("/api/people/similar/").status_code, 400)
+        self.assertEqual(self.client.get("/api/people/similar/?surname=x&limit=abc").status_code, 400)

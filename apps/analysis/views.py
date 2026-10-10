@@ -17,6 +17,7 @@ from apps.core.models import Family, Person
 from .cache import TreeCache
 from .dna import get_dna_matches, get_ydna_data, parse_raw_dna_match_string
 from .relations import get_calculator, get_one_relationship
+from .similar import DEFAULT_LIMIT, MAX_LIMIT, find_similar_people
 from .timeline import EVENT_CATEGORIES, RELATIVES, Timeline, TimelineError
 
 
@@ -357,3 +358,37 @@ class DnaMatchParserView(APIView):
         if not isinstance(raw, str):
             raw = str(raw)
         return Response(parse_raw_dna_match_string(raw))
+
+
+class SimilarPeopleView(APIView):
+    """
+    GET /api/people/similar/?first_name=&surname=&birth_year=&gender=&limit=
+
+    Possible duplicates for a person being added. Returns the candidate list
+    only when the number of matches is at most ``limit`` (default 20); the
+    total number of matches is always in the ``X-Total-Count`` header.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        first_name = request.query_params.get("first_name", "")
+        surname = request.query_params.get("surname", "")
+        try:
+            birth_year = _int(request, "birth_year", None)
+            gender = _int(request, "gender", None)
+            limit = _int(request, "limit", DEFAULT_LIMIT, minimum=1, maximum=MAX_LIMIT)
+        except TimelineError as exc:
+            return error_response(str(exc))
+        if not first_name.strip() and not surname.strip():
+            return error_response("first_name or surname is required")
+        total, results = find_similar_people(
+            first_name=first_name,
+            surname=surname,
+            birth_year=birth_year,
+            gender=gender,
+            limit=limit,
+        )
+        response = Response(results)
+        response["X-Total-Count"] = total
+        return response

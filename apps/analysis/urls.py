@@ -5,6 +5,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("people/similar/", views.SimilarPeopleView.as_view(), name="people-similar"),
+    path("people/similar", views.SimilarPeopleView.as_view()),
     path("people/<str:handle>/timeline", views.PersonTimelineView.as_view(), name="person-timeline"),
     path("people/<str:handle>/timeline/", views.PersonTimelineView.as_view()),
     path("families/<str:handle>/timeline", views.FamilyTimelineView.as_view(), name="family-timeline"),
