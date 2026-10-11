@@ -78,6 +78,38 @@ def _format_date(date_obj):
     return display_date(date_obj, _lang())
 
 
+def _format_surname(surname):
+    """
+    One surname part like Gramps' ``__format_raw_surname``:
+    ``prefix surname connector`` (a hyphen connector is not padded).
+    """
+    prefix = surname.get("prefix") or ""
+    value = surname.get("surname") or ""
+    connector = surname.get("connector") or ""
+    result = f"{prefix} " if prefix else ""
+    result += value
+    if result and connector != "-":
+        result += f" {connector} "
+    else:
+        result += connector
+    return result
+
+
+def full_surname(name):
+    """
+    All surnames of a name in list order, with prefixes and connectors,
+    like Gramps' full-surname display (``Garner von Zieliński``).
+    People with several surnames are told apart by them, so every view
+    that shows a surname gets the full form.
+    """
+    if not isinstance(name, dict):
+        return ""
+    parts = [
+        _format_surname(s) for s in name.get("surname_list") or [] if isinstance(s, dict)
+    ]
+    return " ".join("".join(parts).split())
+
+
 def _get_person_name_display(person):
     """Get formatted display name from a Person instance."""
     name = person.primary_name if isinstance(person.primary_name, dict) else {}
@@ -86,19 +118,7 @@ def _get_person_name_display(person):
 
     first_name = name.get("first_name", "")
     suffix = name.get("suffix", "")
-    surname_list = name.get("surname_list", [])
-
-    surname = ""
-    for s in surname_list:
-        if isinstance(s, dict) and s.get("primary", False):
-            prefix = s.get("prefix", "")
-            sn = s.get("surname", "")
-            surname = f"{prefix} {sn}".strip() if prefix else sn
-            break
-    if not surname and surname_list:
-        s = surname_list[0]
-        if isinstance(s, dict):
-            surname = s.get("surname", "")
+    surname = full_surname(name)
 
     display = f"{first_name} {surname}".strip()
     if suffix:

@@ -503,6 +503,7 @@ class Timeline:
                 "handle": event.handle,
                 "label": label,
                 "media": [ref_handle(m) for m in (event.media_list or []) if ref_handle(m)],
+                "citation_list": [c for c in (event.citation_list or []) if isinstance(c, str)],
                 "person": person,
                 "place": self._place_profile(event),
                 "age": age,

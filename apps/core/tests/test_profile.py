@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.analysis.dates import display_date, make_date
 from apps.analysis.tests import FixtureMixin
 from apps.core.datedisplay import format_ymd
-from apps.core.profile import get_family_profile, get_person_profile
+from apps.core.profile import full_surname, get_family_profile, get_person_profile
 
 
 @override_settings(GRAMPS_LANGUAGE="en")
@@ -178,3 +178,49 @@ class EventParticipantsTests(FixtureMixin, TestCase):
         birth = self.events["juho_birth"]
         res = APIClient().get(f"/api/events/{birth.handle}?profile=self")
         self.assertNotIn("participants", res.data["profile"])
+
+
+class SurnameDisplayTests(TestCase):
+    def test_all_surnames_are_shown(self):
+        name = {
+            "first_name": "Lewis",
+            "surname_list": [
+                {"surname": "Garner", "primary": True, "origintype": "Taken"},
+                {"surname": "Zieliński", "prefix": "von", "origintype": "Inherited"},
+            ],
+        }
+        self.assertEqual(full_surname(name), "Garner von Zieliński")
+
+    def test_connectors(self):
+        name = {"surname_list": [
+            {"surname": "Garner", "connector": "-", "primary": True},
+            {"surname": "Smith"},
+        ]}
+        self.assertEqual(full_surname(name), "Garner-Smith")
+        name = {"surname_list": [
+            {"surname": "García", "connector": "y", "primary": True},
+            {"surname": "López"},
+        ]}
+        self.assertEqual(full_surname(name), "García y López")
+
+    def test_single_and_empty(self):
+        self.assertEqual(full_surname({"surname_list": [{"surname": "Virtanen"}]}), "Virtanen")
+        self.assertEqual(full_surname({"surname_list": []}), "")
+        self.assertEqual(full_surname(None), "")
+
+    def test_profile_uses_full_surname(self):
+        from apps.core.models import Person
+
+        person = Person.objects.create(
+            handle="multi", gramps_id="I_multi", gender=Person.MALE,
+            primary_name={
+                "first_name": "Lewis", "suffix": "Sr",
+                "surname_list": [
+                    {"surname": "Garner", "primary": True},
+                    {"surname": "Zieliński", "prefix": "von"},
+                ],
+            },
+        )
+        profile = get_person_profile(person, {"self"})
+        self.assertEqual(profile["name_surname"], "Garner von Zieliński")
+        self.assertEqual(profile["name_display"], "Lewis Garner von Zieliński, Sr")

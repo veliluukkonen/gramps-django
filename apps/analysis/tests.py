@@ -365,6 +365,15 @@ class TimelineTests(FixtureMixin, TestCase):
         data = self.get("/api/people/kalle/timeline?locale=en&keys=label,date").json()
         self.assertEqual(set(data[0].keys()), {"label", "date"})
 
+    def test_timeline_items_carry_citation_handles(self):
+        birth = self.events["kalle_birth"]
+        birth.citation_list = ["C1", "C2"]
+        birth.save()
+        data = self.get("/api/people/kalle/timeline?locale=en").json()
+        self.assertEqual(data[0]["label"], "Birth")
+        self.assertEqual(data[0]["citation_list"], ["C1", "C2"])
+        self.assertEqual(data[1]["citation_list"], [])
+
     def test_person_timeline_pagination(self):
         response = self.get("/api/people/kalle/timeline?locale=en&page=2&pagesize=3")
         data = response.json()
