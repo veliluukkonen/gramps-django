@@ -110,7 +110,26 @@ class ProfileDateFormatTests(FixtureMixin, TestCase):
         self.assertEqual(profile["birth"]["date"], "15.1.1900")
         self.assertEqual(profile["death"]["date"], "30.6.1970")
         matti = get_person_profile(self.people["matti"], {"all"})
-        self.assertEqual([e["date"] for e in matti["events"] if e["type"] == "Occupation"], ["1950"])
+        self.assertEqual([e["date"] for e in matti["events"] if e["type"] == "Ammatti"], ["1950"])
+
+    @override_settings(GRAMPS_LANGUAGE="fi")
+    def test_profile_strings_are_localized(self):
+        matti = get_person_profile(self.people["matti"], {"all"})
+        self.assertEqual(matti["birth"]["type"], "Syntymä")
+        self.assertEqual([e["type"] for e in matti["events"]], ["Syntymä", "Ammatti", "Kuolema"])
+        self.assertEqual(matti["events"][0]["role"], "Päähenkilö")
+        self.assertEqual(matti["families"][0]["relationship"], "Avioliitto")
+        res = APIClient().get("/api/people/matti?profile=all")
+        self.assertEqual(res.data["profile"]["death"]["type"], "Kuolema")
+        # Custom types pass through untranslated
+        res = APIClient().get("/api/people/juho?profile=all")
+        self.assertEqual(res.data["profile"]["birth"]["type"], "Syntymä")
+
+    @override_settings(GRAMPS_LANGUAGE="en")
+    def test_profile_strings_in_english(self):
+        matti = get_person_profile(self.people["matti"], {"all"})
+        self.assertEqual([e["type"] for e in matti["events"]], ["Birth", "Occupation", "Death"])
+        self.assertEqual(matti["events"][0]["role"], "Primary")
 
     @override_settings(GRAMPS_LANGUAGE="en")
     def test_profile_dates_in_english(self):
@@ -121,3 +140,41 @@ class ProfileDateFormatTests(FixtureMixin, TestCase):
     def test_family_api_dates(self):
         res = APIClient().get("/api/families/F1?profile=all")
         self.assertEqual(res.data["profile"]["marriage"]["date"], "20.6.1925")
+
+
+@override_settings(GRAMPS_LANGUAGE="en")
+class EventParticipantsTests(FixtureMixin, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from apps.core.backlinks import populate_backlinks_for_object
+
+        for person in cls.people.values():
+            populate_backlinks_for_object(person, "Person")
+        from apps.core.models import Family
+
+        for family in Family.objects.all():
+            populate_backlinks_for_object(family, "Family")
+
+    def test_person_event_participants(self):
+        birth = self.events["juho_birth"]
+        res = APIClient().get(f"/api/events/{birth.handle}?profile=all")
+        self.assertEqual(res.status_code, 200)
+        participants = res.data["profile"]["participants"]
+        self.assertEqual(participants["families"], [])
+        self.assertEqual(len(participants["people"]), 1)
+        self.assertEqual(participants["people"][0]["role"], "Primary")
+        self.assertEqual(participants["people"][0]["person"]["name_given"], "Juho")
+
+    def test_family_event_participants(self):
+        marriage = self.events["F1_marriage"]
+        res = APIClient().get(f"/api/events/{marriage.handle}?profile=all")
+        participants = res.data["profile"]["participants"]
+        self.assertEqual(participants["people"], [])
+        self.assertEqual(participants["families"][0]["role"], "Family")
+        self.assertEqual(participants["families"][0]["family"]["gramps_id"], "F_F1")
+
+    def test_participants_only_when_requested(self):
+        birth = self.events["juho_birth"]
+        res = APIClient().get(f"/api/events/{birth.handle}?profile=self")
+        self.assertNotIn("participants", res.data["profile"])

@@ -39,6 +39,25 @@ def _age_string(start_event, end_event):
     )
 
 
+def _t(value):
+    """Localize a type name like gramps-web-api does (unknown strings pass through)."""
+    # Local import: apps.special imports apps.core.
+    from apps.special.translations import translate
+
+    return translate(value, getattr(settings, "GRAMPS_LANGUAGE", None) or "en")
+
+
+def _role(role, default="Primary"):
+    """
+    Localize an event role. Only "Primary" and "Family" carry the "Role"
+    context in Gramps (Primary -> Päähenkilö); other roles are plain strings.
+    """
+    role = role or default
+    if role in ("Primary", "Family"):
+        return _t("Role|" + role)
+    return _t(role)
+
+
 def _zero_age():
     from apps.analysis.dates import words
 
@@ -140,12 +159,15 @@ def get_event_profile(event, profile_args=None):
     place_display, place_name = _get_place_name(event.place_id)
 
     profile = {
-        "type": event.type or "",
+        "type": _t(event.type or ""),
         "date": _format_date(event.date),
         "place": place_display,
         "place_name": place_name,
         "summary": event.description or "",
     }
+
+    if "all" in profile_args or "participants" in profile_args:
+        profile["participants"] = _event_participants(event)
 
     if "all" in profile_args or "ratings" in profile_args:
         citations = event.citation_list or []
@@ -153,6 +175,40 @@ def get_event_profile(event, profile_args=None):
         profile["confidence"] = _max_confidence(citations)
 
     return profile
+
+
+def _event_participants(event):
+    """
+    People and families referencing the event, with their roles:
+    ``{"people": [{"role", "person"}], "families": [{"role", "family"}]}``.
+    """
+    from .backlinks import get_backlinks
+
+    result = {"people": [], "families": []}
+    links = get_backlinks(event.handle)
+    for handle in links.get("person", []):
+        try:
+            person = Person.objects.get(pk=handle)
+        except Person.DoesNotExist:
+            continue
+        for ref in person.event_ref_list or []:
+            if isinstance(ref, dict) and ref.get("ref") == event.handle:
+                result["people"].append({
+                    "role": _role(ref.get("role")),
+                    "person": get_person_profile(person, {"self"}),
+                })
+    for handle in links.get("family", []):
+        try:
+            family = Family.objects.get(pk=handle)
+        except Family.DoesNotExist:
+            continue
+        for ref in family.event_ref_list or []:
+            if isinstance(ref, dict) and ref.get("ref") == event.handle:
+                result["families"].append({
+                    "role": _role(ref.get("role"), default="Family"),
+                    "family": get_family_profile(family, {"self"}),
+                })
+    return result
 
 
 def _max_confidence(citation_handles):
@@ -212,7 +268,7 @@ def get_person_profile(person, profile_args=None):
             try:
                 evt = Event.objects.get(pk=handle)
                 ep = get_event_profile(evt, profile_args)
-                ep["role"] = ref.get("role", "Primary")
+                ep["role"] = _role(ref.get("role"))
                 if want_age and birth_event is not None:
                     ep["age"] = _age_string(birth_event, evt)
                 events.append(ep)
@@ -332,7 +388,7 @@ def get_family_profile(family, profile_args=None):
         "handle": family.handle,
         "gramps_id": family.gramps_id,
         "family_surname": family_surname,
-        "relationship": family.type or "",
+        "relationship": _t(family.type or ""),
         "father": father_profile,
         "mother": mother_profile,
         "children": children,
@@ -396,7 +452,7 @@ def get_place_profile(place, profile_args=None):
 
     return {
         "gramps_id": place.gramps_id,
-        "type": place.place_type or "",
+        "type": _t(place.place_type or ""),
         "name": name_value,
         "alternate_names": alt_names,
         "alternate_place_names": alt_place_names,
@@ -457,7 +513,7 @@ def get_repository_profile(repo, profile_args=None):
     return {
         "gramps_id": repo.gramps_id,
         "name": repo.name or "",
-        "type": repo.type or "",
+        "type": _t(repo.type or ""),
     }
 
 
@@ -467,7 +523,7 @@ def get_note_profile(note, profile_args=None):
         return {}
     return {
         "gramps_id": note.gramps_id,
-        "type": note.type or "",
+        "type": _t(note.type or ""),
     }
 
 
