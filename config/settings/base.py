@@ -162,5 +162,8 @@ PASSWORD_RESET_TOKEN_LIFETIME = timedelta(hours=1)
 
 # Default language of the tree (type names, translations, profile strings).
 GRAMPS_LANGUAGE = os.environ.get("GRAMPS_LANGUAGE", "fi")
+# Numeric date format in display strings: "iso" (1900-01-15) or "dmy"
+# (15.1.1900). Empty = follow GRAMPS_LANGUAGE (fi -> dmy, others -> iso).
+GRAMPS_DATE_FORMAT = os.environ.get("GRAMPS_DATE_FORMAT", "")
 # Name shown for the tree in the frontend (overridable via /api/trees/-).
 TREE_NAME = os.environ.get("TREE_NAME", "Sukupuu")

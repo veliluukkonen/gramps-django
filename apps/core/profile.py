@@ -5,6 +5,8 @@ Computes display-friendly summaries for Gramps objects.
 Profile data includes formatted names, dates, and nested relationships.
 """
 
+from django.conf import settings
+
 from .models import (
     Citation,
     Event,
@@ -16,35 +18,45 @@ from .models import (
     Source,
 )
 
+# Age/span strings use the same precision as gramps-web-api (years, months, days).
+AGE_PRECISION = 3
+
+
+def _lang():
+    """Language for age strings (``settings.GRAMPS_LANGUAGE``, English fallback)."""
+    return (getattr(settings, "GRAMPS_LANGUAGE", None) or "en")[:2].lower()
+
+
+def _age_string(start_event, end_event):
+    """Age between two events as a localized string ("" when not computable)."""
+    if start_event is None or end_event is None:
+        return ""
+    # Local import: apps.analysis.dates imports _format_date from this module.
+    from apps.analysis.dates import span_string
+
+    return span_string(
+        start_event.date, end_event.date, precision=AGE_PRECISION, lang=_lang()
+    )
+
+
+def _zero_age():
+    from apps.analysis.dates import words
+
+    return words(_lang())["0 days"]
+
 
 def _format_date(date_obj):
-    """Format a Gramps date JSON object to a display string."""
+    """
+    Format a Gramps date JSON object for display (modifiers, ranges and the
+    configured numeric format; see ``apps.core.datedisplay``).
+    """
     if not date_obj or not isinstance(date_obj, dict):
         return ""
+    # Local import: apps.analysis.dates must not be imported at module load
+    # by apps.core (it imports apps.core.datedisplay).
+    from apps.analysis.dates import display_date
 
-    text = date_obj.get("text", "")
-    if text:
-        return text
-
-    dateval = date_obj.get("dateval")
-    if not dateval:
-        return ""
-
-    # dateval is [day, month, year, slash] or longer for ranges
-    if len(dateval) >= 3:
-        day, month, year = dateval[0], dateval[1], dateval[2]
-        parts = []
-        if year and year != 0:
-            parts.append(str(year))
-        if month and month != 0:
-            parts.append(f"{month:02d}")
-        if day and day != 0:
-            parts.append(f"{day:02d}")
-        if parts:
-            # Format as YYYY-MM-DD
-            return "-".join(parts)
-
-    return ""
+    return display_date(date_obj, _lang())
 
 
 def _get_person_name_display(person):
@@ -182,6 +194,13 @@ def get_person_profile(person, profile_args=None):
     }
 
     all_args = "all" in profile_args
+    want_age = all_args or "age" in profile_args
+
+    # Age at death (and per-event ages below), like gramps-web-api
+    if want_age and birth_event is not None:
+        profile["birth"]["age"] = _zero_age()
+        if death_event is not None:
+            profile["death"]["age"] = _age_string(birth_event, death_event)
 
     # Events
     if all_args or "events" in profile_args:
@@ -194,6 +213,8 @@ def get_person_profile(person, profile_args=None):
                 evt = Event.objects.get(pk=handle)
                 ep = get_event_profile(evt, profile_args)
                 ep["role"] = ref.get("role", "Primary")
+                if want_age and birth_event is not None:
+                    ep["age"] = _age_string(birth_event, evt)
                 events.append(ep)
             except Event.DoesNotExist:
                 continue
@@ -201,11 +222,12 @@ def get_person_profile(person, profile_args=None):
 
     # Families
     if all_args or "families" in profile_args:
+        fam_args = {"self", "age"} if want_age else {"self"}
         families = []
         for fam_handle in (person.family_list or []):
             try:
                 fam = Family.objects.get(pk=fam_handle)
-                families.append(get_family_profile(fam, {"self"}))
+                families.append(get_family_profile(fam, fam_args))
             except Family.DoesNotExist:
                 continue
         profile["families"] = families
@@ -216,7 +238,7 @@ def get_person_profile(person, profile_args=None):
             try:
                 primary_fam = Family.objects.get(pk=parent_families[0])
                 profile["primary_parent_family"] = get_family_profile(
-                    primary_fam, {"self"}
+                    primary_fam, fam_args
                 )
             except Family.DoesNotExist:
                 profile["primary_parent_family"] = {}
@@ -225,7 +247,7 @@ def get_person_profile(person, profile_args=None):
             for fh in parent_families[1:]:
                 try:
                     fam = Family.objects.get(pk=fh)
-                    other.append(get_family_profile(fam, {"self"}))
+                    other.append(get_family_profile(fam, fam_args))
                 except Family.DoesNotExist:
                     continue
             profile["other_parent_families"] = other
@@ -248,6 +270,8 @@ def get_family_profile(family, profile_args=None):
 
     profile_args = profile_args or {"self"}
     all_args = "all" in profile_args
+    # Members get their age at death when requested (like gramps-web-api)
+    member_args = {"self", "age"} if all_args or "age" in profile_args else {"self"}
 
     # Father/mother profiles
     father_profile = {}
@@ -257,7 +281,7 @@ def get_family_profile(family, profile_args=None):
     if family.father_handle_id:
         try:
             father = Person.objects.get(pk=family.father_handle_id)
-            father_profile = get_person_profile(father, {"self"})
+            father_profile = get_person_profile(father, member_args)
             family_surname = father_profile.get("name_surname", "")
         except Person.DoesNotExist:
             pass
@@ -265,7 +289,7 @@ def get_family_profile(family, profile_args=None):
     if family.mother_handle_id:
         try:
             mother = Person.objects.get(pk=family.mother_handle_id)
-            mother_profile = get_person_profile(mother, {"self"})
+            mother_profile = get_person_profile(mother, member_args)
             if not family_surname:
                 family_surname = mother_profile.get("name_surname", "")
         except Person.DoesNotExist:
@@ -300,7 +324,7 @@ def get_family_profile(family, profile_args=None):
                 continue
             try:
                 child = Person.objects.get(pk=child_handle)
-                children.append(get_person_profile(child, {"self"}))
+                children.append(get_person_profile(child, member_args))
             except Person.DoesNotExist:
                 continue
 

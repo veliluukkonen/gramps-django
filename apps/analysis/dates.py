@@ -10,7 +10,7 @@ Ages and spans are computed from the year/month/day components (not from
 ``sortval``) following the arithmetic in ``gramps.gen.lib.date.Span``.
 """
 
-from apps.core.profile import _format_date
+from apps.core.datedisplay import format_ymd
 
 MOD_NONE = 0
 MOD_BEFORE = 1
@@ -334,14 +334,16 @@ def span_string(start_date, end_date, precision=1, lang="en"):
     return text
 
 
-def _format_ymd(year, month, day):
-    return _format_date({"dateval": [day, month, year, False]})
+def _slash(date, index):
+    dateval = _dateval(date) or []
+    return bool(dateval[index]) if len(dateval) > index else False
 
 
 def display_date(date, lang="en"):
     """
-    Display a Gramps date as text (ISO style, like the Gramps default
-    date format), honouring modifiers such as "about" or "between".
+    Display a Gramps date as text, honouring modifiers such as "about" or
+    "between". The numeric format (ISO or day.month.year) follows the
+    language, see ``apps.core.datedisplay``.
     """
     if not date or not isinstance(date, dict):
         return ""
@@ -353,10 +355,10 @@ def display_date(date, lang="en"):
     if ymd is None:
         return text
     table = words(lang)
-    start = _format_ymd(*ymd)
+    start = format_ymd(*ymd, slash=_slash(date, 3), lang=lang)
     if modifier in (MOD_RANGE, MOD_SPAN):
         stop = get_stop_ymd(date)
-        stop_text = _format_ymd(*stop) if stop else ""
+        stop_text = format_ymd(*stop, slash=_slash(date, 7), lang=lang) if stop else ""
         if modifier == MOD_RANGE:
             if lang[:2] == "fi":
                 return "%s %s %s %s" % (start, table["and"], stop_text, table["between"])
