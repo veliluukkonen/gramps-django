@@ -195,6 +195,24 @@ class MiscTests(TreeTestCase):
         self.assertEqual(res.data[0]["object"]["handle"], "s1")
         self.assertIn("profile", res.data[0]["object"])
 
+    def test_citation_source_page_filter(self):
+        self.add_objects(
+            self.owner,
+            [
+                {"_class": "Source", "handle": "s1", "title": "A"},
+                {"_class": "Source", "handle": "s2", "title": "B"},
+                {"_class": "Citation", "handle": "c1", "source_handle": "s1", "page": "s. 12"},
+                {"_class": "Citation", "handle": "c2", "source_handle": "s1", "page": "s. 120"},
+                {"_class": "Citation", "handle": "c3", "source_handle": "s2", "page": "s. 12"},
+            ],
+        )
+        self.login(self.member)
+        res = self.client.get("/api/citations/?source_handle=s1&citation_page=%20S.%2012%20")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual([c["handle"] for c in res.data], ["c1"])
+        res = self.client.get("/api/citations/?source_handle=s1&page=1&pagesize=10")
+        self.assertEqual(sorted(c["handle"] for c in res.data), ["c1", "c2"])
+
     def test_reports(self):
         self.login(self.member)
         res = self.client.get("/api/reports/")

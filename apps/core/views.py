@@ -377,6 +377,20 @@ class CitationViewSet(GrampsObjectViewSet):
     serializer_class = CitationSerializer
     gramps_class = "Citation"
 
+    def get_queryset(self):
+        # Exact source/page lookups for the duplicate check of new citations
+        # (the HasCitation rule only matches the page as a substring).
+        queryset = super().get_queryset()
+        params = self.request.query_params
+        source_handle = params.get("source_handle")
+        if source_handle:
+            queryset = queryset.filter(source_handle_id=source_handle)
+        # "page" is taken by pagination, hence "citation_page"
+        page = params.get("citation_page")
+        if page is not None:
+            queryset = queryset.filter(page__iexact=page.strip())
+        return queryset
+
 
 class RepositoryViewSet(GrampsObjectViewSet):
     queryset = Repository.objects.all()
