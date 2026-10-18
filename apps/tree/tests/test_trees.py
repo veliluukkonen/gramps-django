@@ -185,6 +185,16 @@ class MiscTests(TreeTestCase):
         self.login(self.member)
         self.assertEqual(self.client.post("/api/search/index/").status_code, 403)
 
+    def test_search_returns_full_object(self):
+        self.add_objects(self.owner, [{"_class": "Source", "handle": "s1", "title": "Kirkonkirjat"}])
+        self.login(self.member)
+        res = self.client.get("/api/search/?query=*&type=source&profile=all")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["object"]["title"], "Kirkonkirjat")
+        self.assertEqual(res.data[0]["object"]["handle"], "s1")
+        self.assertIn("profile", res.data[0]["object"])
+
     def test_reports(self):
         self.login(self.member)
         res = self.client.get("/api/reports/")

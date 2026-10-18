@@ -34,6 +34,17 @@ from apps.core.profile import (
     get_repository_profile,
     get_source_profile,
 )
+from apps.core.serializers import (
+    CitationSerializer,
+    EventSerializer,
+    FamilySerializer,
+    MediaObjectSerializer,
+    NoteSerializer,
+    PersonSerializer,
+    PlaceSerializer,
+    RepositorySerializer,
+    SourceSerializer,
+)
 
 GRAMPS_DJANGO_VERSION = "3.3.0"
 
@@ -159,18 +170,18 @@ class SearchView(APIView):
         results = []
 
         search_configs = [
-            ("person", Person, _search_people, get_person_profile),
-            ("family", Family, _search_families, get_family_profile),
-            ("event", Event, _search_events, get_event_profile),
-            ("place", Place, _search_places, get_place_profile),
-            ("source", Source, _search_sources, get_source_profile),
-            ("citation", Citation, _search_citations, get_citation_profile),
-            ("repository", Repository, _search_repositories, get_repository_profile),
-            ("media", MediaObject, _search_media, get_media_profile),
-            ("note", Note, _search_notes, get_note_profile),
+            ("person", Person, _search_people, get_person_profile, PersonSerializer),
+            ("family", Family, _search_families, get_family_profile, FamilySerializer),
+            ("event", Event, _search_events, get_event_profile, EventSerializer),
+            ("place", Place, _search_places, get_place_profile, PlaceSerializer),
+            ("source", Source, _search_sources, get_source_profile, SourceSerializer),
+            ("citation", Citation, _search_citations, get_citation_profile, CitationSerializer),
+            ("repository", Repository, _search_repositories, get_repository_profile, RepositorySerializer),
+            ("media", MediaObject, _search_media, get_media_profile, MediaObjectSerializer),
+            ("note", Note, _search_notes, get_note_profile, NoteSerializer),
         ]
 
-        for type_name, model, search_func, profile_func in search_configs:
+        for type_name, model, search_func, profile_func, serializer_cls in search_configs:
             if allowed_types and type_name not in allowed_types:
                 continue
 
@@ -187,10 +198,9 @@ class SearchView(APIView):
                     "object_type": type_name,
                     "score": 1.0,
                     "change": obj.change,
-                    "object": {
-                        "handle": obj.handle,
-                        "gramps_id": obj.gramps_id or "",
-                    },
+                    # Full object like upstream Gramps Web API, so the
+                    # frontend can show e.g. source titles in result lists.
+                    "object": serializer_cls(obj).data,
                 }
                 if profile_args:
                     result["object"]["profile"] = profile_func(obj, profile_args)
