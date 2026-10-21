@@ -57,12 +57,17 @@ def _get_serializer_for_model(model):
 
 
 def _resolve_handle_list(handles, model, context):
-    """Resolve a list of handles to serialized objects."""
+    """Resolve a list of handles to serialized objects.
+
+    The result keeps the order (and duplicates) of ``handles``, because
+    clients match extended objects to the reference list by index.
+    Missing objects become ``{}`` so the indices stay aligned.
+    """
     if not handles:
         return []
-    objs = model.objects.filter(pk__in=handles)
+    objs = model.objects.in_bulk(set(handles))
     serializer_class = _get_serializer_for_model(model)
-    return [_serialize_obj(obj, serializer_class, context) for obj in objs]
+    return [_serialize_obj(objs.get(h), serializer_class, context) for h in handles]
 
 
 def _resolve_ref_list(ref_list, model, context):
