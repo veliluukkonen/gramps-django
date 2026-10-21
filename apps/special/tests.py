@@ -259,3 +259,26 @@ class TranslationsTests(TestCase):
         self.assertEqual(translate("Role\x04Primary", "fi"), "Päähenkilö")
         self.assertEqual(translate("Nope\x04Primary", "xx"), "Primary")
         self.assertEqual(translate("", "fi"), "")
+
+
+class SearchSortTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        for i, title in enumerate(
+            ["Örebro", "kirkonkirjat", "Åbo", "Zürich", "Ähtäri", "Alavus"]
+        ):
+            Source.objects.create(handle=f"S{i}", gramps_id=f"S{i:04d}", title=title)
+
+    def titles(self, query):
+        resp = self.client.get(f"/api/search/?type=source&sort=title&query={query}")
+        self.assertEqual(resp.status_code, 200)
+        return [r["object"]["title"] for r in resp.json()]
+
+    def test_wildcard_sorted_by_title(self):
+        self.assertEqual(
+            self.titles("*"),
+            ["Alavus", "kirkonkirjat", "Zürich", "Åbo", "Ähtäri", "Örebro"],
+        )
+
+    def test_query_sorted_by_title(self):
+        self.assertEqual(self.titles("r*"), ["kirkonkirjat", "Zürich", "Ähtäri", "Örebro"])

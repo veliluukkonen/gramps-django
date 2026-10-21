@@ -166,6 +166,7 @@ class SearchView(APIView):
 
         # Sort parameter
         sort_param = request.query_params.get("sort", "")
+        by_title = sort_param.lstrip("-") == "title"
 
         results = []
 
@@ -186,7 +187,9 @@ class SearchView(APIView):
                 continue
 
             if is_wildcard:
-                matches = model.objects.all().order_by("-change")[:100]
+                has_title = any(f.name == "title" for f in model._meta.fields)
+                order = "title" if by_title and has_title else "-change"
+                matches = model.objects.all().order_by(order)[:100]
             else:
                 # Strip trailing wildcard for icontains search
                 clean_query = query.rstrip("*")
@@ -207,7 +210,12 @@ class SearchView(APIView):
                 results.append(result)
 
         # Sort
-        if "-change" in sort_param:
+        if by_title:
+            results.sort(
+                key=lambda r: _title_sort_key(r["object"].get("title", "")),
+                reverse=sort_param.startswith("-"),
+            )
+        elif "-change" in sort_param:
             results.sort(key=lambda r: r["change"], reverse=True)
         elif "change" in sort_param:
             results.sort(key=lambda r: r["change"])
@@ -223,6 +231,14 @@ class SearchView(APIView):
         response = Response(page_results)
         response["X-Total-Count"] = total
         return response
+
+
+# Finnish alphabet: å, ä, ö come after z (code points would give ä < å).
+_FI_LETTER_ORDER = str.maketrans({"å": "{", "ä": "|", "ö": "}"})
+
+
+def _title_sort_key(title):
+    return (title or "").casefold().translate(_FI_LETTER_ORDER)
 
 
 def _search_people(query):
