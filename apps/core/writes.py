@@ -23,6 +23,7 @@ from django.db import transaction as db_transaction
 
 from . import serializers as ser
 from .backlinks import populate_backlinks_for_object
+from .gramps_types import normalize_types
 from .names import normalize_name, normalize_name_list
 from .models import (
     BacklinkIndex,
@@ -170,6 +171,8 @@ def prepare_data(obj_dict, class_name):
             data["primary_name"] = normalize_name(data["primary_name"])
         if "alternate_names" in data:
             data["alternate_names"] = normalize_name_list(data["alternate_names"])
+    # localized type names (as sent by the frontend) -> standard Gramps values
+    normalize_types(data, class_name)
     return data
 
 
@@ -307,10 +310,26 @@ class TransactionBuilder:
 
         if class_name == "Family":
             self._family_updated(old_data, instance)
+        if class_name == "Event" and old_data.get("type") != instance.type:
+            self._event_type_changed(handle)
 
         self._record("update", class_name, handle, old_data, serialize(instance))
         self._touched[(class_name, handle)] = instance
         return instance
+
+    def _event_type_changed(self, event_handle):
+        """Recompute birth/death indices of the people referencing an event."""
+        person_handles = BacklinkIndex.objects.filter(
+            target_handle=event_handle, source_type="Person"
+        ).values_list("source_handle", flat=True)
+        for person in Person.objects.filter(pk__in=list(person_handles)):
+            old_data = serialize(person)
+            old_indices = (person.birth_ref_index, person.death_ref_index)
+            set_birth_death_index(person)
+            if (person.birth_ref_index, person.death_ref_index) != old_indices:
+                person.save(update_fields=["birth_ref_index", "death_ref_index"])
+                self._record("update", "Person", person.handle, old_data, serialize(person))
+                self._touched[("Person", person.handle)] = person
 
     def delete(self, class_name, handle):
         """Delete an object and remove references to it from other objects."""
