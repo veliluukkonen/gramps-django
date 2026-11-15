@@ -20,6 +20,7 @@ from .models import (
     Source,
     Tag,
 )
+from .names import normalize_name, normalize_name_list
 
 
 def add_date_years(value):
@@ -91,6 +92,15 @@ class GrampsBaseSerializer(serializers.ModelSerializer):
 
 
 class PersonSerializer(GrampsBaseSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Complete names like gramps-web-api (the frontend expects every field).
+        if "primary_name" in data:
+            data["primary_name"] = normalize_name(data["primary_name"])
+        if "alternate_names" in data:
+            data["alternate_names"] = normalize_name_list(data["alternate_names"])
+        return data
+
     class Meta:
         model = Person
         fields = [

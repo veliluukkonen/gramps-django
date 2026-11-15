@@ -23,6 +23,7 @@ from django.db import transaction as db_transaction
 
 from . import serializers as ser
 from .backlinks import populate_backlinks_for_object
+from .names import normalize_name, normalize_name_list
 from .models import (
     BacklinkIndex,
     Citation,
@@ -164,6 +165,11 @@ def prepare_data(obj_dict, class_name):
             data[key] = value
     if "gramps_id" in data and data["gramps_id"] == "":
         data["gramps_id"] = None
+    if class_name == "Person":
+        if "primary_name" in data:
+            data["primary_name"] = normalize_name(data["primary_name"])
+        if "alternate_names" in data:
+            data["alternate_names"] = normalize_name_list(data["alternate_names"])
     return data
 
 
